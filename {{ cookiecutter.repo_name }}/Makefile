@@ -8,19 +8,74 @@ BUCKET = {{ cookiecutter.s3_bucket }}
 PROJECT_NAME = {{ cookiecutter.repo_name }}
 PYTHON_INTERPRETER = {{ cookiecutter.python_interpreter }}
 
-ifeq (,$(shell which conda))
-HAS_CONDA=False
+
+#################################################################################
+# FOR CONDA                                                                     #
+#################################################################################
+ifeq (3,$(findstring 3,$(PYTHON_INTERPRETER)))
+PYTHON_VERSION = 3
 else
-HAS_CONDA=True
+PYTHON_VERSION = 2
 endif
+
+ifeq ($(SYSTEM),Linux)
+	PLATFORM = Linux
+endif
+ifeq ($(SYSTEM),Darwin)
+	PLATFORM = MacOSX
+endif
+
+MINICONDA = Miniconda$(PYTHON_VERSION)-latest-$(PLATFORM)-x86_64.sh
+
+ifeq (,$(shell which conda))
+	HAS_CONDA = False
+else
+	HAS_CONDA = True
+endif
+
+environment:
+	@echo $(MINICONDA)
 
 #################################################################################
 # COMMANDS                                                                      #
 #################################################################################
 
+download_conda:
+ifeq (True, $(HAS_CONDA))
+	@echo ">>> Detected conda. Please run make create_environment"
+else
+	$(shell sh -c 'wget -P /tmp https://repo.continuum.io/miniconda/$(MINICONDA)')
+	$(shell sh -c 'chmod u+x /tmp/$(MINICONDA)')
+	@echo "\n>>> Please run /tmp/$(MINICONDA)"
+endif
+
+## Set up python interpreter environment from conda
+create_environment:
+ifeq (True,$(HAS_CONDA))
+	$(shell sh -c 'conda config --add channels conda-forge')
+	ifeq (3,$(PYTHON_VERSION))
+		conda create --name $(PROJECT_NAME) python=3.5
+	else
+		conda create --name $(PROJECT_NAME) python=2.7
+	endif
+	@echo ">>> New conda environment created. Activate with:\nsource activate $(PROJECT_NAME)"
+else
+	@echo ">>> Conda not detected. Please run make download_conda"
+endif
+
 ## Install Python Dependencies
-requirements: test_environment
-	pip install -r requirements.txt
+install_requirements:
+ifeq (True,$(HAS_CONDA))
+ifeq ($(CONDA_DEFAULT_ENV),$(PROJECT_NAME))
+	conda env update -f $(PROJECT_NAME).yml
+else
+	@echo ">>> You are not in the right environment.\nPlease run source activate "$(PROJECT_NAME)
+endif
+endif
+
+## Create the data and subfolders
+create_data_folders:
+	for f in external interim processed raw; do mkdir -p data/$$f ; touch data/$$f/.gitkeep ; done
 
 ## Make Dataset
 data: requirements
@@ -41,24 +96,6 @@ sync_data_to_s3:
 ## Download Data from S3
 sync_data_from_s3:
 	aws s3 sync s3://$(BUCKET)/data/ data/
-
-## Set up python interpreter environment
-create_environment:
-ifeq (True,$(HAS_CONDA))
-		@echo ">>> Detected conda, creating conda environment."
-ifeq (3,$(findstring 3,$(PYTHON_INTERPRETER)))
-	conda create --name $(PROJECT_NAME) python=3.5
-else
-	conda create --name $(PROJECT_NAME) python=2.7
-endif
-		@echo ">>> New conda env created. Activate with:\nsource activate $(PROJECT_NAME)"
-else
-	@pip install -q virtualenv virtualenvwrapper
-	@echo ">>> Installing virtualenvwrapper if not already intalled.\nMake sure the following lines are in shell startup file\n\
-	export WORKON_HOME=$$HOME/.virtualenvs\nexport PROJECT_HOME=$$HOME/Devel\nsource /usr/local/bin/virtualenvwrapper.sh\n"
-	@bash -c "source `which virtualenvwrapper.sh`;mkvirtualenv $(PROJECT_NAME) --python=$(PYTHON_INTERPRETER)"
-	@echo ">>> New virtualenv created. Activate with:\nworkon $(PROJECT_NAME)"
-endif
 
 ## Test python environment is setup correctly
 test_environment:

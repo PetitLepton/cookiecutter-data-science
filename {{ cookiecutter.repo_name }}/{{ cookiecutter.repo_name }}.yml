@@ -1,0 +1,12 @@
+name: {{ cookiecutter.repo_name }}
+channels:
+- conda-forge
+- defaults
+dependencies:
+  - click
+  - sphinx
+  - coverage
+  - awscli
+  - flake8
+  - pip:
+    - python-dotenv
