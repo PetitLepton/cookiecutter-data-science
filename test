@@ -1,8 +1,0 @@
-LICENSE
-README.md
-cookiecutter.json
-docs
-requirements.txt
-test
-tests
-{{ cookiecutter.repo_name }}
