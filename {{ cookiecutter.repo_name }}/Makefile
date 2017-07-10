@@ -4,18 +4,19 @@
 # GLOBALS                                                                       #
 #################################################################################
 
+PROJECT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 BUCKET = {{ cookiecutter.s3_bucket }}
 PROJECT_NAME = {{ cookiecutter.repo_name }}
-PYTHON_INTERPRETER = {{ cookiecutter.python_interpreter }}
-
+SYSTEM :=$(shell sh -c 'uname -s 2>/dev/null || echo not')
 
 #################################################################################
 # FOR CONDA                                                                     #
 #################################################################################
-ifeq (3,$(findstring 3,$(PYTHON_INTERPRETER)))
-PYTHON_VERSION = 3
+
+ifeq (,$(shell which conda))
+HAS_CONDA=False
 else
-PYTHON_VERSION = 2
+HAS_CONDA=True
 endif
 
 ifeq ($(SYSTEM),Linux)
@@ -25,16 +26,7 @@ ifeq ($(SYSTEM),Darwin)
 	PLATFORM = MacOSX
 endif
 
-MINICONDA = Miniconda$(PYTHON_VERSION)-latest-$(PLATFORM)-x86_64.sh
-
-ifeq (,$(shell which conda))
-	HAS_CONDA = False
-else
-	HAS_CONDA = True
-endif
-
-environment:
-	@echo $(MINICONDA)
+MINICONDA = Miniconda3-latest-$(PLATFORM)-x86_64.sh
 
 #################################################################################
 # COMMANDS                                                                      #
@@ -53,14 +45,10 @@ endif
 create_environment:
 ifeq (True,$(HAS_CONDA))
 	$(shell sh -c 'conda config --add channels conda-forge')
-	ifeq (3,$(PYTHON_VERSION))
-		conda create --name $(PROJECT_NAME) python=3.5
-	else
-		conda create --name $(PROJECT_NAME) python=2.7
-	endif
-	@echo ">>> New conda environment created. Activate with:\nsource activate $(PROJECT_NAME)"
+	conda create --name $(PROJECT_NAME) python=3.5
+	@echo ">>> New conda env created. Activate with:\nsource activate $(PROJECT_NAME)"
 else
-	@echo ">>> Conda not detected. Please run make download_conda"
+	@echo ">>> Conda not detected. Please run make install_conda"
 endif
 
 ## Install Python Dependencies
@@ -73,13 +61,13 @@ else
 endif
 endif
 
-## Create the data and subfolders
-create_data_folders:
+## Create the data folders and subfolders
+data_folders:
 	for f in external interim processed raw; do mkdir -p data/$$f ; touch data/$$f/.gitkeep ; done
 
 ## Make Dataset
 data: requirements
-	$(PYTHON_INTERPRETER) src/data/make_dataset.py
+	python3 src/data/make_dataset.py
 
 ## Delete all compiled Python files
 clean:
@@ -99,7 +87,11 @@ sync_data_from_s3:
 
 ## Test python environment is setup correctly
 test_environment:
-	$(PYTHON_INTERPRETER) test_environment.py
+	python3 test_environment.py
+
+## Add local directory to the environment variables
+add_local_variables:
+	echo "project_dir="$(PROJECT_DIR) >> .env
 
 #################################################################################
 # PROJECT RULES                                                                 #
