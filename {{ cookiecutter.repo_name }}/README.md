@@ -3,6 +3,23 @@
 
 {{cookiecutter.description}}
 
+==============================
+
+First, add the data folders:
+- go to the `{{cookiecutter.project_name}}` repository;
+- run `make add_local_variables` to create an environment variable of the project directory;
+- run `make data_folders` since, if you cloned the project, the folders do no exist;
+
+Second, install `conda` and set up both the virtual environment and the Python packages:
+- run `make download_conda` and follow the last instruction for installation;
+- run `make create_environment` to create a `conda` environment named `{{cookiecutter.project_name}}`;
+- load the environment by `source activate {{cookiecutter.project_name}}` and run `make install_requirements` to download the Python modules;
+- run `jupyter kernelspec list` and check that the kernel points to the conda `{{cookiecutter.project_name}}` environment, not a local one (see [this page](https://jupyter-client.readthedocs.io/en/latest/kernels.html#kernelspecs)).
+
+If you need to install new packages, please add them in the dependencies section from `{{cookiecutter.project_name}}.yml`.
+
+==============================
+
 Project Organization
 ------------
 
